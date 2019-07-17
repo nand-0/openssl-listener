@@ -39,7 +39,7 @@ iptables \
 	-j DROP 
 
 (>&2 echo "[*] Starting Listener at $(date +%H:%M:%S)")
-(>&2 echo "[*] Expecting incomming connection from ${CLIENT_IP} on port ${PORT}...")
+(>&2 echo "[*] Expecting incoming connection from ${CLIENT_IP} on port ${PORT}...")
 trap "(>&2 echo ' [*] Closing port ${PORT}...' )" SIGINT SIGTERM
 openssl s_server \
 	-quiet -key ${KEY} \
