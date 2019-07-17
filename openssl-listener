@@ -1,0 +1,61 @@
+#!/bin/bash
+
+
+if [[ $# -eq 0 ]] || [[ $# -gt 3 ]];then
+	(>&2 echo "$(basename $0) <client address> <local port>")
+	exit 1
+else
+	CLIENT_IP=$1		
+	PORT=$2
+fi
+
+BASENAME=$(basename $0)
+TMP=$( mktemp  --tmpdir="/tmp/" -d ${BASENAME}."XXXXXXXXXXXX" )
+KEY=$( mktemp -u --tmpdir=${TMP}  ${BASENAME}."XXXXXXXXXXXX.key" )
+CRT=$( mktemp -u --tmpdir=${TMP} ${BASENAME}."XXXXXXXXXXXX.crt" )
+# TLS Version
+TLS="-tls1"
+SUBJECT="/C=../ST=../L=../O=../OU=.. Department/CN=.."
+
+(>&2 echo "[*] Generating temporary keypair...")
+
+openssl req \
+	-x509 \
+	-newkey rsa:4096 \
+	-keyout ${KEY} \
+	-out ${CRT} \
+	-subj "${SUBJECT}" \
+	-days 365 \
+	-nodes  2>/dev/null
+
+(>&2 echo "[*] Setting Firewall rule...")
+
+
+iptables \
+	-A INPUT \
+	-p tcp \
+	--destination-port ${PORT} \
+	! -s ${CLIENT_IP} \
+	-j DROP 
+
+(>&2 echo "[*] Starting Listener at $(date +%H:%M:%S)")
+(>&2 echo "[*] Expecting incomming connection from ${CLIENT_IP} on port ${PORT}...")
+trap "(>&2 echo ' [*] Closing port ${PORT}...' )" SIGINT SIGTERM
+openssl s_server \
+	-quiet -key ${KEY} \
+	-cert ${CRT} ${TLS} \
+	-accept ${PORT} 
+
+(>&2 echo "[*] Removing Firewall rule...")
+iptables \
+	-D INPUT \
+	-p tcp \
+	--destination-port ${PORT} \
+	! -s ${CLIENT_IP} \
+	-j DROP
+
+(>&2 echo "[*] Removing Temporary files...")
+rm -rf ${TMP}
+
+(>&2 echo "[*] Bye !")
+
